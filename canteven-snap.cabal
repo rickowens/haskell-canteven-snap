@@ -22,14 +22,14 @@ library
   -- other-modules:       
   -- other-extensions:    
   build-depends:
-    aeson,
+    aeson >= 0.8 && < 0.10,
     base,
     blaze-html >= 0.8 && < 0.9,
     bytestring,
     data-default,
     hslogger,
-    markdown >= 0.1 && < 0.2,
-    snap >= 0.14 && < 0.15,
+    markdown >= 0.1.13.2 && < 0.2,
+    snap >= 0.14.0.6 && < 0.15,
     template-haskell,
     text,
     transformers
