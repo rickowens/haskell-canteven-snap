@@ -46,7 +46,7 @@ import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Version (Version, showVersion)
 import Language.Haskell.TH (Exp(LitE, VarE, AppE), Lit(StringL), Q, runIO)
-import Snap (Snap, getParam, writeBS, setResponseCode, getResponse,
+import Snap.Core (Snap, getParam, writeBS, setResponseCode, getResponse,
   finishWith, modifyResponse, setHeader, readRequestBody, Method(Method),
   getsRequest, rqMethod, rqPathInfo, pass, getHeader)
 import Text.Blaze.Html.Renderer.String (renderHtml)
