@@ -17,6 +17,7 @@ module Canteven.Snap (
   assertMethod,
   writeJSON,
   unsupportedMediaType,
+  notAcceptable,
   readJSON,
   getMethod,
   exactPath,
@@ -46,7 +47,8 @@ import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Version (Version, showVersion)
 import Language.Haskell.TH (Exp(LitE, VarE, AppE), Lit(StringL), Q, runIO)
-import Snap.Core (Snap, getParam, writeBS, setResponseCode, getResponse,
+import Snap.Core (MonadSnap, Snap, getParam, writeBS, setResponseCode,
+  getResponse,
   finishWith, modifyResponse, setHeader, readRequestBody, Method(Method),
   getsRequest, rqMethod, rqPathInfo, pass, getHeader)
 import Text.Blaze.Html.Renderer.String (renderHtml)
@@ -162,6 +164,10 @@ writeJSON j = do
   modifyResponse (setHeader "Content-Type" "application/json")
   writeBS . toStrict . encode $ j
 
+
+-- | Short circuit with a 406 response.
+notAcceptable :: MonadSnap m => m a
+notAcceptable = finishWith . setResponseCode 406 =<< getResponse
 
 {- |
   Short circuit with a 415 response.
