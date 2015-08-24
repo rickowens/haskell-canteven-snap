@@ -47,7 +47,7 @@ import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Version (Version, showVersion)
 import Language.Haskell.TH (Exp(LitE, VarE, AppE), Lit(StringL), Q, runIO)
-import Snap.Core (MonadSnap, Snap, getParam, writeBS, setResponseCode,
+import Snap.Core (MonadSnap, getParam, writeBS, setResponseCode,
   getResponse,
   finishWith, modifyResponse, setHeader, readRequestBody, Method(Method),
   getsRequest, rqMethod, rqPathInfo, pass, getHeader)
@@ -63,7 +63,7 @@ import qualified System.Log.Logger as L (debugM, warningM)
   Look up a parameter, and if it doesn't exist, then cause a 400
   BadRequest to be returned to the user
 -}
-requiredParam :: ByteString -> Snap ByteString
+requiredParam :: MonadSnap m => ByteString -> m ByteString
 requiredParam name = do
   param <- getParam name
   case param of
@@ -75,7 +75,7 @@ requiredParam name = do
   Look up a parameter, and decode it using utf8. If the parameter doesn't
   exist, then cause a 400 BadReqeust to be returned to the user.
 -}
-requiredUtf8Param :: ByteString -> Snap Text
+requiredUtf8Param :: MonadSnap m => ByteString -> m Text
 requiredUtf8Param = fmap decodeUtf8 . requiredParam
 
 
@@ -86,7 +86,7 @@ requiredUtf8Param = fmap decodeUtf8 . requiredParam
   path), this short-circuit causes a 400 Bad Request to be returned no
   matter what.
 -}
-badRequest :: String -> Snap a
+badRequest :: MonadSnap m => String -> m a
 badRequest reason = do -- snap monad
   writeBS (encodeUtf8 (T.pack (reason ++ "\n")))
   response <- fmap (setResponseCode 400) getResponse
@@ -96,21 +96,21 @@ badRequest reason = do -- snap monad
 {- |
   Return a @201 Created@ response.
 -}
-created :: Snap ()
+created :: MonadSnap m => m ()
 created = modifyResponse (setResponseCode 201)
 
 
 {- |
   Return a @204 No Content@ response.
 -}
-noContent :: Snap ()
+noContent :: MonadSnap m => m ()
 noContent = modifyResponse (setResponseCode 204)
 
 
 {- |
   Short circuit with a @404 Not Found@.
 -}
-notFound :: Snap a 
+notFound :: MonadSnap m => m a
 notFound = do
   response <- fmap (setResponseCode 404) getResponse
   finishWith response
@@ -119,7 +119,7 @@ notFound = do
 {- |
   Set the reponse code to @409 Conflict@.
 -}
-conflict :: Snap ()
+conflict :: MonadSnap m => m ()
 conflict = modifyResponse (setResponseCode 409)
 
 
@@ -128,7 +128,7 @@ conflict = modifyResponse (setResponseCode 409)
   Short circuit with a 405 Method Not Allowed. Also, set the Allow header
   with the allowed methods.
 -}
-methodNotAllowed :: [Method] -> Snap a
+methodNotAllowed :: MonadSnap m => [Method] -> m a
 methodNotAllowed allowedMethods = do
   response <- fmap (withAllow . setResponseCode 405) getResponse
   finishWith response
@@ -147,7 +147,7 @@ methodNotAllowed allowedMethods = do
   the assertion fails, then the request will result in a 405 Method Not
   Allowed.
 -}
-assertMethod :: Method -> Snap a -> Snap a
+assertMethod :: (MonadSnap m) => Method -> m a -> m a
 assertMethod allowedMethod snap = do
   requestMethod <- getsRequest rqMethod
   if requestMethod == allowedMethod
@@ -159,7 +159,7 @@ assertMethod allowedMethod snap = do
   Write a `ToJSON` instance to the entity body, setting the @Content-Type@
   header to @application/json@.
 -}
-writeJSON :: (ToJSON json) => json -> Snap ()
+writeJSON :: (MonadSnap m, ToJSON json) => json -> m ()
 writeJSON j = do
   modifyResponse (setHeader "Content-Type" "application/json")
   writeBS . toStrict . encode $ j
@@ -172,7 +172,7 @@ notAcceptable = finishWith . setResponseCode 406 =<< getResponse
 {- |
   Short circuit with a 415 response.
 -}
-unsupportedMediaType :: Snap a
+unsupportedMediaType :: MonadSnap m => m a
 unsupportedMediaType = finishWith . setResponseCode 415 =<< getResponse
 
 
@@ -183,12 +183,12 @@ unsupportedMediaType = finishWith . setResponseCode 415 =<< getResponse
   so an exception will be thrown in the case where the maximum size
   is exceeded.
 -}
-readJSON :: (FromJSON json) => Int64 -> Snap json
+readJSON :: (FromJSON json, MonadSnap m) => Int64 -> m json
 readJSON maxSize = do
   body <- readRequestBody maxSize
   case eitherDecode body of
     Left err -> do
-      logReason body err 
+      logReason body err
       badRequest err
     Right json -> return json
   where
@@ -200,7 +200,7 @@ readJSON maxSize = do
 {- |
   Shorthand Snap action for retrieving the request method.
 -}
-getMethod :: Snap Method
+getMethod :: MonadSnap m => m Method
 getMethod = getsRequest rqMethod
 
 
@@ -209,7 +209,7 @@ getMethod = getsRequest rqMethod
   using `pass`. This is helpful when using routes to make sure that a route
   named "/foo" does not match an request uri of "/foo/bar"
 -}
-exactPath :: Snap a -> Snap a
+exactPath :: MonadSnap m => m a -> m a
 exactPath s = do
   pathInfo <- getsRequest rqPathInfo
   liftIO $ debugM ("PathInfo: " ++ show pathInfo)
@@ -265,22 +265,22 @@ staticMarkdown filename = runIO $ do
         `AppE` LitE (StringL "text/html")
   where
     renderMarkdown :: TL.Text -> String
-    renderMarkdown = renderHtml . markdown def 
+    renderMarkdown = renderHtml . markdown def
 
 
 {- |
   Create a Snap that returns static content.
 -}
-staticSnap :: ByteString -> ContentType -> Snap ()
+staticSnap :: MonadSnap m => ByteString -> ContentType -> m ()
 staticSnap bs ct = do
   modifyResponse (setHeader "Content-Type" ct)
   exactPath (writeBS bs)
- 
+
 
 {- |
   Return a server error, no matter what.
 -}
-serverError :: String -> Snap a
+serverError :: MonadSnap m => String -> m a
 serverError reason = do -- snap monad
   writeBS (encodeUtf8 (T.pack (reason ++ "\n")))
   response <- fmap (setResponseCode 500) getResponse
@@ -355,7 +355,7 @@ class ResponseEntity e where
   content type is not supported, or @400 Bad Request@ if the content type is
   supported, but the entity can't be decoded.
 -}
-readEntity :: (RequestEntity e) => Int64 -> Snap e
+readEntity :: (MonadSnap m, RequestEntity e) => Int64 -> m e
 readEntity maxSize = do
   body <- readRequestBody maxSize
   contentType <- getRequestContentType
@@ -383,7 +383,7 @@ readEntity maxSize = do
   A more powerful version of writeJSON. This function writes generic
   `ResponseEntity`s, and sets the right content type for them.
 -}
-writeEntity :: (ResponseEntity e) => e -> Snap()
+writeEntity :: (MonadSnap m, ResponseEntity e) => e -> m ()
 writeEntity e = do
   modifyResponse (setHeader "Content-Type" (getContentType e))
   writeBS . getBytes $ e
@@ -406,11 +406,12 @@ data DecodeResult e
   Utility method that sets the @Server:@ header to something sensible.
 -}
 setServerVersion
-  :: String
+  :: MonadSnap m
+  => String
     -- ^ @name@ - The name of your server.
   -> Version
     -- ^ @version@ - The version of your server.
-  -> Snap ()
+  -> m ()
 setServerVersion name =
   modifyResponse
   . setHeader "Server"
@@ -418,5 +419,3 @@ setServerVersion name =
   . T.pack
   . ((name ++ "/") ++)
   . showVersion
-
-
