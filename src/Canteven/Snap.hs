@@ -110,7 +110,7 @@ noContent = modifyResponse (setResponseCode 204)
 {- |
   Short circuit with a @404 Not Found@.
 -}
-notFound :: MonadSnap m => m a 
+notFound :: MonadSnap m => m a
 notFound = do
   response <- fmap (setResponseCode 404) getResponse
   finishWith response
@@ -188,7 +188,7 @@ readJSON maxSize = do
   body <- readRequestBody maxSize
   case eitherDecode body of
     Left err -> do
-      logReason body err 
+      logReason body err
       badRequest err
     Right json -> return json
   where
@@ -265,7 +265,7 @@ staticMarkdown filename = runIO $ do
         `AppE` LitE (StringL "text/html")
   where
     renderMarkdown :: TL.Text -> String
-    renderMarkdown = renderHtml . markdown def 
+    renderMarkdown = renderHtml . markdown def
 
 
 {- |
@@ -275,7 +275,7 @@ staticSnap :: MonadSnap m => ByteString -> ContentType -> m ()
 staticSnap bs ct = do
   modifyResponse (setHeader "Content-Type" ct)
   exactPath (writeBS bs)
- 
+
 
 {- |
   Return a server error, no matter what.
@@ -419,5 +419,3 @@ setServerVersion name =
   . T.pack
   . ((name ++ "/") ++)
   . showVersion
-
-
