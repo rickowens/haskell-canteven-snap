@@ -9,10 +9,15 @@ module Canteven.Snap (
   requiredParam,
   requiredUtf8Param,
   badRequest,
+
+  -- FinishWith functions
+  accepted,
   created,
   noContent,
   notFound,
   conflict,
+  internalServerError,
+
   methodNotAllowed,
   assertMethod,
   writeJSON,
@@ -43,11 +48,12 @@ import Data.ByteString.Lazy (toStrict)
 import Data.Default (def)
 import Data.Int (Int64)
 import Data.List (intercalate)
+import Data.Monoid ((<>))
 import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Version (Version, showVersion)
 import Language.Haskell.TH (Exp(LitE, VarE, AppE), Lit(StringL), Q, runIO)
-import Snap.Core (MonadSnap, getParam, writeBS, setResponseCode,
+import Snap.Core (MonadSnap, getParam, writeBS, writeText, setResponseCode,
   getResponse,
   finishWith, modifyResponse, setHeader, readRequestBody, Method(Method),
   getsRequest, rqMethod, rqPathInfo, pass, getHeader)
@@ -67,7 +73,7 @@ requiredParam :: MonadSnap m => ByteString -> m ByteString
 requiredParam name = do
   param <- getParam name
   case param of
-    Nothing -> badRequest ("missing parameter: " ++ d name)
+    Nothing -> badRequest ("missing parameter: " <> decodeUtf8 name)
     Just value -> return value
 
 
@@ -78,6 +84,9 @@ requiredParam name = do
 requiredUtf8Param :: MonadSnap m => ByteString -> m Text
 requiredUtf8Param = fmap decodeUtf8 . requiredParam
 
+-- | Return with a @202 Accepted@ response
+accepted :: MonadSnap m => Text -> m a
+accepted = returnWith 202
 
 {- |
   Using this will short-circuit the snap monad (in much the same way as
@@ -86,43 +95,47 @@ requiredUtf8Param = fmap decodeUtf8 . requiredParam
   path), this short-circuit causes a 400 Bad Request to be returned no
   matter what.
 -}
-badRequest :: MonadSnap m => String -> m a
-badRequest reason = do -- snap monad
-  writeBS (encodeUtf8 (T.pack (reason ++ "\n")))
-  response <- fmap (setResponseCode 400) getResponse
-  finishWith response
+badRequest :: MonadSnap m => Text -> m a
+badRequest = returnWith 400
 
 
 {- |
   Return a @201 Created@ response.
 -}
-created :: MonadSnap m => m ()
-created = modifyResponse (setResponseCode 201)
+created :: MonadSnap m => Text -> m a
+created = returnWith 201
 
 
 {- |
   Return a @204 No Content@ response.
 -}
-noContent :: MonadSnap m => m ()
-noContent = modifyResponse (setResponseCode 204)
-
+noContent :: MonadSnap m => m a
+noContent = do
+  modifyResponse (setResponseCode 204)
+  getResponse >>= finishWith
 
 {- |
   Short circuit with a @404 Not Found@.
 -}
-notFound :: MonadSnap m => m a
-notFound = do
-  response <- fmap (setResponseCode 404) getResponse
-  finishWith response
-
+notFound :: MonadSnap m => Text -> m a
+notFound = returnWith 404
 
 {- |
   Set the reponse code to @409 Conflict@.
 -}
-conflict :: MonadSnap m => m ()
-conflict = modifyResponse (setResponseCode 409)
+conflict :: MonadSnap m => Text -> m a
+conflict = returnWith 409
 
+-- | Return a @500 Internal Error@ response.
+internalServerError :: MonadSnap m => Text -> m a
+internalServerError = returnWith 500
 
+-- | Fail-fast with the given error code and message
+returnWith :: MonadSnap m => Int -> Text -> m a
+returnWith code msg = do
+  writeText msg
+  modifyResponse (setResponseCode code)
+  getResponse >>= finishWith
 
 {- |
   Short circuit with a 405 Method Not Allowed. Also, set the Allow header
@@ -189,7 +202,7 @@ readJSON maxSize = do
   case eitherDecode body of
     Left err -> do
       logReason body err
-      badRequest err
+      badRequest . T.pack $ err
     Right json -> return json
   where
     logReason body err = warningM (
@@ -288,13 +301,6 @@ serverError reason = do -- snap monad
 
 
 {- |
-  decode a bytestring to a string, via utf8
--}
-d :: ByteString -> String
-d = T.unpack . decodeUtf8
-
-
-{- |
   Shorthand logging
 -}
 debugM :: String -> IO ()
@@ -365,7 +371,7 @@ readEntity maxSize = do
       unsupportedMediaType
     BadEntity reason -> do
       logBadEntity contentType reason
-      badRequest reason
+      badRequest . T.pack $ reason
     Ok e -> return e
   where
     getRequestContentType = getsRequest (getHeader "content-type")
