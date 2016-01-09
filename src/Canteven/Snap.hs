@@ -30,7 +30,6 @@ module Canteven.Snap (
   static,
   staticMarkdown,
   staticSnap,
-  serverError,
   ContentType,
   RequestEntity(..),
   ResponseEntity(..),
@@ -288,16 +287,6 @@ staticSnap :: MonadSnap m => ByteString -> ContentType -> m ()
 staticSnap bs ct = do
   modifyResponse (setHeader "Content-Type" ct)
   exactPath (writeBS bs)
-
-
-{- |
-  Return a server error, no matter what.
--}
-serverError :: MonadSnap m => String -> m a
-serverError reason = do -- snap monad
-  writeBS (encodeUtf8 (T.pack (reason ++ "\n")))
-  response <- fmap (setResponseCode 500) getResponse
-  finishWith response
 
 
 {- |
