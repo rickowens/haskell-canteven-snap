@@ -12,17 +12,17 @@ module Canteven.Snap (
 
   -- FinishWith functions
   accepted,
-  created,
-  noContent,
-  notFound,
   conflict,
+  created,
   internalServerError,
-
   methodNotAllowed,
+  noContent,
+  notAcceptable,
+  notFound,
+  unsupportedMediaType,
+
   assertMethod,
   writeJSON,
-  unsupportedMediaType,
-  notAcceptable,
   readJSON,
   getMethod,
   exactPath,
@@ -30,7 +30,6 @@ module Canteven.Snap (
   static,
   staticMarkdown,
   staticSnap,
-  serverError,
   ContentType,
   RequestEntity(..),
   ResponseEntity(..),
@@ -54,9 +53,8 @@ import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Version (Version, showVersion)
 import Language.Haskell.TH (Exp(LitE, VarE, AppE), Lit(StringL), Q, runIO)
 import Snap.Core (MonadSnap, getParam, writeBS, writeText, setResponseCode,
-  getResponse,
-  finishWith, modifyResponse, setHeader, readRequestBody, Method(Method),
-  getsRequest, rqMethod, rqPathInfo, pass, getHeader)
+  getResponse, finishWith, modifyResponse, setHeader, readRequestBody,
+  Method(Method), getsRequest, rqMethod, rqPathInfo, pass, getHeader)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Markdown (markdown)
 import qualified Data.ByteString.Lazy as L (ByteString, readFile)
@@ -288,16 +286,6 @@ staticSnap :: MonadSnap m => ByteString -> ContentType -> m ()
 staticSnap bs ct = do
   modifyResponse (setHeader "Content-Type" ct)
   exactPath (writeBS bs)
-
-
-{- |
-  Return a server error, no matter what.
--}
-serverError :: MonadSnap m => String -> m a
-serverError reason = do -- snap monad
-  writeBS (encodeUtf8 (T.pack (reason ++ "\n")))
-  response <- fmap (setResponseCode 500) getResponse
-  finishWith response
 
 
 {- |
