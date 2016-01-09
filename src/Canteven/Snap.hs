@@ -12,17 +12,17 @@ module Canteven.Snap (
 
   -- FinishWith functions
   accepted,
-  created,
-  noContent,
-  notFound,
   conflict,
+  created,
   internalServerError,
-
   methodNotAllowed,
+  noContent,
+  notAcceptable,
+  notFound,
+  unsupportedMediaType,
+
   assertMethod,
   writeJSON,
-  unsupportedMediaType,
-  notAcceptable,
   readJSON,
   getMethod,
   exactPath,
