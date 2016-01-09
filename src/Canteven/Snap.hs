@@ -53,9 +53,8 @@ import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Version (Version, showVersion)
 import Language.Haskell.TH (Exp(LitE, VarE, AppE), Lit(StringL), Q, runIO)
 import Snap.Core (MonadSnap, getParam, writeBS, writeText, setResponseCode,
-  getResponse,
-  finishWith, modifyResponse, setHeader, readRequestBody, Method(Method),
-  getsRequest, rqMethod, rqPathInfo, pass, getHeader)
+  getResponse, finishWith, modifyResponse, setHeader, readRequestBody,
+  Method(Method), getsRequest, rqMethod, rqPathInfo, pass, getHeader)
 import Text.Blaze.Html.Renderer.String (renderHtml)
 import Text.Markdown (markdown)
 import qualified Data.ByteString.Lazy as L (ByteString, readFile)
