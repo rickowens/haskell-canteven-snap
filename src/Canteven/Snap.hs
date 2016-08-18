@@ -39,7 +39,6 @@ module Canteven.Snap (
   setServerVersion
 ) where
 
-import Control.Applicative ((<$>))
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Data.Aeson (ToJSON, encode, eitherDecode, FromJSON)
 import Data.ByteString (ByteString)
