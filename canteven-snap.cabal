@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                canteven-snap
-version:             0.4.0.0
+version:             1.0.0.0
 synopsis:            A more or less random collection of Snap shorthand and utilities that make webservice programming easier.
 -- description:
 homepage:            https://github.com/SumAll/canteven-snap
